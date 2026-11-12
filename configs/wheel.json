@@ -1,0 +1,14 @@
+{
+  "device_index": 0,
+  "steering_axis": 0,
+  "steering_sign": 1,
+  "calibrated": true,
+  "device_name": "Thrustmaster Racing Wheel FFB",
+  "guid": "030087e14f04000096b6000011010000",
+  "rotation_degrees": 360,
+  "center": 0.001922607421875,
+  "left": -0.996917724609375,
+  "right": 0.99658203125,
+  "measured_at": "2026-10-21T18:15:34.736247+08:00",
+  "note": "Measured pygame mapping; confirm vehicle left/right during the direct practice run."
+}

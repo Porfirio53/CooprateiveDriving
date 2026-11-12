@@ -1,0 +1,99 @@
+simulator:
+  host: localhost
+  port: 2000
+  timeout: 20
+  town: Town04
+  synchronous: true
+  fixed_time: 0.01
+  no_rendering: false
+  user_defined_spawn_points: false
+  start_point: 150
+  end_point: 150
+  sampling_resolution: 2
+  route_file: /home/patton/cooperative_driving/configs/route_town04.json
+  camera_width: 640
+  camera_height: 360
+controller:
+  max_throttle: 0.75
+  max_brake: 0.3
+  max_steer: 1
+  min_steer: -1
+  pre_ts: 0.2
+  dt: 0.01
+  lateral:
+    filter: false
+    type: SharedControl
+    SharedControl:
+      driver_model: G29
+      vehicle_model: MPC
+      authority_model: PPO
+      driver_state: 0.5
+    MPC:
+      Q:
+      - 250
+      - 1
+      - 20
+      - 1
+      R: 20
+      F: 1
+    Preview:
+      K_P: 1.6
+      K_I: 0
+      K_D: 0
+      near: 0
+      far: 2
+      delay: 5
+    G29:
+      device_index: 0
+      steering_axis: 0
+      steering_sign: 1
+  longitudinal:
+    type: PID
+    PID:
+      K_P: 2
+      K_I: 0
+      K_D: 0
+planner:
+  debug: false
+  ds: 1
+  MAX_SPEED: 35.0
+  MAX_ACCEL: 2.0
+  MAX_CURVATURE: 1.0
+  MAX_ROAD_WIDTH: 7.0
+  D_ROAD_W: 1.0
+  DT: 0.2
+  MAX_T: 5.0
+  MIN_T: 4.0
+  TARGET_SPEED: 30.0
+  D_T_S: 5.0
+  N_S_SAMPLE: 1
+  ROBOT_RADIUS: 3.0
+  K_J: 0.1
+  K_T: 0.1
+  K_D: 1
+  K_LAT: 1.0
+  K_LON: 1.0
+rl:
+  device: cpu
+  train: false
+  use_state_norm: false
+  buffer_capacity: 100000
+  batch_size: 128
+  state_dim: 6
+  action_dim: 1
+  hidden_dim: 128
+  lr_a: 0.0005
+  lr_c: 0.0005
+  gamma: 0.9
+  gae_lambda: 0.95
+  clip_param: 0.2
+  entropy_coef: 0.01
+  ppo_epoch: 10
+  model:
+    actor: rl/model/ppo/actor_model.pkl
+    critic: rl/model/ppo/critic_model.pkl
+vehicles:
+  ego:
+    model: vehicle.tesla.model3
+    color: 0,0,0
+  obstacles: []

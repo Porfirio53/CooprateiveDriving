@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+export COOP_ROOT=/home/patton/cooperative_driving
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONNOUSERSITE=1
+export XDG_CACHE_HOME="$COOP_ROOT/.cache"
+export HF_HOME="$COOP_ROOT/.cache/huggingface"
+export TORCH_HOME="$COOP_ROOT/.cache/torch"
+export CUDA_CACHE_PATH="$COOP_ROOT/.cache/cuda"
+export MPLCONFIGDIR="$COOP_ROOT/.cache/matplotlib"
+export CONDA_PKGS_DIRS="$COOP_ROOT/.cache/conda"
+export PIP_CACHE_DIR="$COOP_ROOT/.cache/pip"
+export PYTHONPYCACHEPREFIX="$COOP_ROOT/.cache/pycache"
+export TORCH_EXTENSIONS_DIR="$COOP_ROOT/.cache/torch_extensions"
+export TRITON_CACHE_DIR="$COOP_ROOT/.cache/triton"
+export TORCHINDUCTOR_CACHE_DIR="$COOP_ROOT/.cache/inductor"
+export TIREX_PYTHON=/home/patton/MyTirex/.venv/bin/python
+export HOCD_PYTHON="$COOP_ROOT/envs/hocd/bin/python"
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
+mkdir -p "$CUDA_CACHE_PATH" "$MPLCONFIGDIR" "$COOP_ROOT/logs" "$COOP_ROOT/runs"

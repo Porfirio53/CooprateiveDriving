@@ -1,0 +1,18 @@
+{
+  "id": "single_driver_3maps_v1",
+  "participant": "P001",
+  "maps": ["town03", "town04", "town05"],
+  "conditions": {
+    "hold": {"shared_control": true, "compensation": "hold"},
+    "tirex": {"shared_control": true, "compensation": "current_tirex"},
+    "manual_tirex": {"shared_control": false, "compensation": "current_tirex"}
+  },
+  "delay_ms": 300,
+  "target_speed_kmh": 30,
+  "expected_scoring_seconds": [30, 45],
+  "max_scoring_seconds": 90,
+  "off_route_limit_m": 5,
+  "runs_per_map_condition": 1,
+  "launch": "Manual: the participant starts each individual command; never chain trials.",
+  "recording": "Per-tick CSV data. No image sequence and no automatic figure export."
+}

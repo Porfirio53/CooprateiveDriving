@@ -1,0 +1,10 @@
+participant,order,map,condition,repeat,status
+P001,1,town03,hold,1,pending
+P001,2,town03,tirex,1,pending
+P001,3,town03,manual_tirex,1,pending
+P001,4,town04,tirex,1,pending
+P001,5,town04,manual_tirex,1,pending
+P001,6,town04,hold,1,pending
+P001,7,town05,manual_tirex,1,pending
+P001,8,town05,hold,1,pending
+P001,9,town05,tirex,1,pending

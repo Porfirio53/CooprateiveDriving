@@ -1,0 +1,53 @@
+{
+  "created_at": "2026-10-19T17:24:50+08:00",
+  "status": "ready_to_connect_wheel",
+  "hocd_revision": "49b0189595f3dc525f4bc7194671742e203f7839",
+  "hocd_patch_sha256": "78891f699f0e1c22771dda8f117f9e602f70149b47af02b487dd2bee9a07aae2",
+  "current_tirex_source_sha256": "54cd32d1ae8baf53c883cd5f11e9e610c308643d1e2fc8a92cbddcc14ffb8cc3",
+  "model_lock": {
+    "repo_id": "NX-AI/TiRex-2",
+    "revision": "30788a311699acba7e6393ad9700ea7b7cb9bb2d",
+    "local_directory": "models/tirex2",
+    "sha256": {
+      "model-config.yaml": "cddbe6d0be4919cb7b0cad747fb19a295264e129d1c0790cf62133b4cb5da727",
+      "model.ckpt": "184b160ffbe4c01a26beeba14015ff3507c7497e1f3577114187bbc1d19fcac1"
+    }
+  },
+  "kernel": "6.8.0-40-generic",
+  "wheel_driver_revision": "d890a93105a0aa52028ac49282fa1b579e12566e",
+  "wheel_driver_submodules": "8c4547288a6c182ed4ff131e36f710f11a76c4a9 deps/hid-tminit (remotes/origin/usb-2-g8c45472)",
+  "files_sha256": {
+    "README.md": "058c11e54eea8f4cf6923977f221d50793233ca8c7acdd58abb4830ad58ee05b",
+    "bridge/__init__.py": "4f82c3c2fd3ddb7d74ea50eb9c2ec8e25e8139163c509248d755fee702b9b347",
+    "bridge/control_client.py": "6a192ad352208fa0364874195a4a6462771f88c89bb3b30ed060527841347b2e",
+    "bridge/hocd_runner.py": "954e916384941bd858c456161d118652967d2bfe6e272cba5a8b512f1a42f343",
+    "bridge/hocd_tirex_adapter.py": "e72c3d22c111e98258cc05e8eafa66ecc4b800a021ef95b341724f7472c76b65",
+    "bridge/planning_worker.py": "66a2bbf97813febccee5e08e837d0533bae3e0b0a645e5bb690f21c801bd1d65",
+    "bridge/tirex_bridge.py": "96e7991c829b3528d7af5a4e3335f7a502521c9b04496564ed18bda4f9c02182",
+    "configs/experiment.json": "33809ac8ad6463f7012fab6c39c029549b98af3f6ae9491114526eba74dba37c",
+    "configs/hocd.yaml": "e3c7fdead056a513fc926e0e2b57a3b678ddc896c768edab02ef3f35531abca5",
+    "configs/hocd_signals.json": "89118b4892ddf2048bd75da83f928b1cf58bcb16ba970343d2b1987daf0da9ee",
+    "configs/participant_schedule.csv": "42b79a98e49f9b822f8a9625ab7299142232b1f2a1214ec7a03e3cc6d4fc10d2",
+    "configs/requirements-hocd.lock": "41de6e87278db21aed0e1b8939ccb18cfa8c15d205bb186790825b2b2a8da768",
+    "configs/requirements-hocd.txt": "1855b7a2a0226ddfd481fa6aeaeccf92ae651ceefb79a66fc38d8234a967e6a0",
+    "configs/route_town04.json": "b4128b6048e3a94b79b3afdbf710f6d169d8ae3f93188b7046129bd9dd2ae744",
+    "configs/tirex_tuning.json": "767dd37ad49cdfd93b9f6f43539b3301e1dda639dfabbe821c55e97bd3fd8c4e",
+    "configs/wheel.json": "22900cf6e420c9438354049a22256b4e043ed61b616970a4022c09a11e33ebfe",
+    "scripts/analyze_run.py": "4f11db8dcdd1799fd2374b11ccc5bc0ac66cf1eaf712c1051772fda8e7fd7a44",
+    "scripts/audit_preparation_runs.py": "0da686ccc9f3f9c1b174ec7da5f41dafc103aa626d7b7a6607bed3e90d243247",
+    "scripts/bootstrap_hocd.sh": "0e9a344c59a8e6de0e979d749cd599373fb89fab1869558967daafd4b4f49342",
+    "scripts/carla.sh": "ec03a0993138db8415c7a5b5546421aa5dcc3bbb66b43a4ae827b88acc6ec7f2",
+    "scripts/carla_service.py": "33255f0210f2b13518ef5de17d48ba34af98ccfb8cbb4ad7ad02b31cb4738482",
+    "scripts/check_interrupt_cleanup.py": "dee00e7ed72045fc8e11f9d6e06b17b5515156a07e6140db1bb43f6492e4ad7a",
+    "scripts/check_readiness.py": "15dbc499277f83a1a91c0276f923b5b7b9f8f85eba353589e334e4d43ef403ca",
+    "scripts/env.sh": "8a1ba1b232b0a77d83ecb1fae8abe416028c34cd2578b2c3fb72c4ab0a44a03b",
+    "scripts/jstest.sh": "be2da743125dd6d91e907922a231d4455d59f759fb5822509b8b6df789dd3260",
+    "scripts/prepare_route.py": "44f2905b6c65e8529d3ec994faf837d13817f41dccadf28a64507915e9421d32",
+    "scripts/probe_wheel.py": "928116d043bd55c39fdd5e7d33d1437650ea36efa2eab5b298d3074d1983d3b2",
+    "scripts/probe_wheel.sh": "c9596c6e1fbd5719702d52204f88c51ded6c30ed73b5453f78403198b9052bd7",
+    "scripts/run_trial.sh": "5a7a168a3d12a9f9362e226085c676e194f44d2eb711a95390f7f69db700c6ca",
+    "scripts/start_carla.sh": "b9390f5ad6d75b7481cc6cb66dc70449a65910ee93477908bd4e3079ed4f00b8",
+    "scripts/verify_external_resources.py": "a8fe64c7658fdc1f0efdb8eceb260a5e3d104873db7031bd67e6a88e94ab3cf1",
+    "tests/test_steering_contract.py": "3aade7ed94813ab612ae2119a059fb1d40f6b2c092549e83cd6f5cb4f7ea591e"
+  }
+}

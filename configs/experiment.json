@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "dataset": "hocd_steer_h_v1",
+  "protocol": {
+    "score_start_s": 7.0,
+    "delays_ms": [
+      300
+    ],
+    "clock": "integer_microseconds",
+    "target": "query_time"
+  },
+  "runtime": {
+    "device": "cuda",
+    "batch_size": 1,
+    "num_threads": 4,
+    "seed": 42
+  },
+  "tuning_config": "configs/tirex_tuning.json"
+}

@@ -1,0 +1,7 @@
+{
+  "sample_period_us": 25000,
+  "targets": ["steer_h"],
+  "past_covariates": [],
+  "future_covariates": [],
+  "units": {"steer_h": "hocd_steer"}
+}

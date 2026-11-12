@@ -1,0 +1,913 @@
+diff --git a/controller/g29.py b/controller/g29.py
+index 5290aa9..85e94d5 100644
+--- a/controller/g29.py
++++ b/controller/g29.py
+@@ -1,143 +1,47 @@
++"""T248P axis acquisition; the historic class name is retained for HOCD."""
++import math
+ import pygame
+-from configparser import ConfigParser
+-from pygame.locals import KMOD_CTRL, K_ESCAPE, K_q
+-
+-from utils.data import LatDebugInfo
+ 
+ 
+ class G29:
+     def __init__(self, config=None):
+-        pygame.init()
+-
+-        # initialize steering wheel
++        config = config or {}
++        self.connected = False
++        self._joystick = None
++        self._steer_idx = int(config.get('steering_axis', 0))
++        self._steer_sign = float(config.get('steering_sign', 1))
++        if self._steer_sign not in (-1., 1.):
++            raise ValueError('steering_sign must be 1 or -1')
++        if config.get('diagnostic_input', False):
++            return
+         pygame.joystick.init()
+-
+-        joystick_count = pygame.joystick.get_count()
+-        if joystick_count > 1:
+-            raise ValueError("Please Connect Just One Joystick")
+-
+-        self._joystick = pygame.joystick.Joystick(0)
++        index = int(config.get('device_index', 0))
++        if not 0 <= index < pygame.joystick.get_count():
++            raise RuntimeError('T248P not found. Connect it and run scripts/probe_wheel.sh first.')
++        self._joystick = pygame.joystick.Joystick(index)
+         self._joystick.init()
+-
+-        # Load configuration from config file
+-        self._parser = ConfigParser()
+-        self._parser.read('utils/wheel_config.ini')
+-        self._steer_idx = int(
+-            self._parser.get('G29 Racing Wheel', 'steering_wheel'))
+-        self._throttle_idx = int(
+-            self._parser.get('G29 Racing Wheel', 'throttle'))
+-        self._brake_idx = int(self._parser.get('G29 Racing Wheel', 'brake'))
+-        self._reverse_idx = int(self._parser.get('G29 Racing Wheel', 'reverse'))
+-        self._handbrake_idx = int(
+-            self._parser.get('G29 Racing Wheel', 'handbrake'))
+-
++        if config.get('expected_name') and self._joystick.get_name() != config['expected_name']:
++            raise RuntimeError('Joystick identity changed; probe the T248P again')
++        if config.get('expected_guid') and self._joystick.get_guid() != config['expected_guid']:
++            raise RuntimeError('Joystick GUID changed; probe the T248P again')
++        if not 0 <= self._steer_idx < self._joystick.get_numaxes():
++            raise ValueError('Configured steering axis is unavailable')
+         self.connected = True
+ 
+-        # Turn signal states
+-        self.left_triggered = False   # whether left turn signal is active
+-        self.right_triggered = False  # whether right turn signal is active
+-
+-        self.R_button_index = 4    # right paddle
+-        self.L_button_index = 5    # left paddle
+-        self.back_button_index = 7 # reset (mapped to L2)
+-
+-        # Button mapping (PlayStation layout)
+-        self.times_button_index = 0
+-        self.rect_button_index = 1
+-        self.circle_button_index = 2
+-        self.triangle_button_index = 3
+-
+-        # Button states
+-        self.times_state = False
+-        self.rect_state = False
+-        self.circle_state = False
+-        self.triangle_state = False
+-
+-    def control(self, path_list=None, vehicle_state=None, e_rr=None, min_index=None):
+-        for event in pygame.event.get():
+-            if event.type == pygame.QUIT:
+-                return True
+-            elif event.type == pygame.KEYUP:
+-                if self._is_quit_shortcut(event.key):
+-                    return True
+-                
+-        # Parse steering wheel input
+-        steer = self._parse_vehicle_wheel()
+-
+-        # Infer human driving intention (e.g., lane change direction)
+-        intention = self._get_human_intent()
+-        
+-        return steer, LatDebugInfo(
+-            intention=intention,
+-            g29_connected=self.connected,
+-            triangle=self.triangle_state,
+-            rect=self.rect_state,
+-            circle=self.circle_state,
+-            times=self.times_state
+-        )
+-
+-    def _get_human_intent(self) -> str:
+-        """
+-        Human intention recognition
+-        Returns:
+-            str: direction intention ("LEFT", "RIGHT", or "")
+-        """
+-
+-        # Logic for activating/deactivating turn signals
+-        if self.left_state:
+-            if not self.left_triggered:
+-                # Activate left turn signal and deactivate right
+-                self.left_triggered = True
+-                self.right_triggered = False
+-                print("Left turn signal activated!")
+-        elif self.right_state:
+-            if not self.right_triggered:
+-                # Activate right turn signal and deactivate left
+-                self.right_triggered = True
+-                self.left_triggered = False
+-                print("Right turn signal activated!")
+-        elif self.back_state:
+-            # Reset all signals when L2 button is pressed
+-            if self.left_triggered or self.right_triggered:
+-                print("Turn signals cleared!")
+-            self.left_triggered = False
+-            self.right_triggered = False
+-
+-        # Output current intention
+-        if self.left_triggered:
+-            return "LEFT"
+-        elif self.right_triggered:
+-            return "RIGHT"
+-        else:
+-            return ""
+-
+-    def _parse_vehicle_wheel(self):
+-        numAxes = self._joystick.get_numaxes()
+-        jsInputs = [float(self._joystick.get_axis(i)) for i in range(numAxes)]
+-
+-        # Read paddle and button states
+-        self.left_state = bool(self._joystick.get_button(self.L_button_index))
+-        self.right_state = bool(self._joystick.get_button(self.R_button_index))
+-        self.back_state = bool(self._joystick.get_button(self.back_button_index))
+-
+-        self.times_state = bool(self._joystick.get_button(self.times_button_index))
+-        self.rect_state = bool(self._joystick.get_button(self.rect_button_index))
+-        self.circle_state = bool(self._joystick.get_button(self.circle_button_index))
+-        self.triangle_state = bool(self._joystick.get_button(self.triangle_button_index))
+-
+-        # Note: Steering wheel range should be set to 360° in G29 driver settings
+-        steerCmd = jsInputs[self._steer_idx] * 3.14
+-
+-        return steerCmd
+-
+-    @staticmethod
+-    def _is_quit_shortcut(key):
+-        return (key == K_ESCAPE) or (key == K_q and pygame.key.get_mods() & KMOD_CTRL)
+-
+-
+-if __name__ == '__main__':
+-    controller = G29()
+-    while True:
+-        steer, info = controller.control()
+-        print(f"steer: {steer}, intention: {info.intention}")
+-
++    def sample(self):
++        if self._joystick is None:
++            raise RuntimeError('No live wheel in diagnostic mode')
++        if not self._joystick.get_init() or not self.connected:
++            raise RuntimeError('T248P disconnected')
++        value = self._steer_sign * float(self._joystick.get_axis(self._steer_idx)) * 3.14
++        if not math.isfinite(value):
++            raise RuntimeError('Nonfinite steering input')
++        return value
++
++    def control(self, *args, **kwargs):
++        raise RuntimeError('Sample T248P once in the main loop; SharedControl must use delayed human_steer')
++
++    def close(self):
++        if self._joystick is not None:
++            self._joystick.quit()
++        self.connected = False
+diff --git a/controller/share.py b/controller/share.py
+index 0fb2012..d19464e 100644
+--- a/controller/share.py
++++ b/controller/share.py
+@@ -76,7 +76,18 @@ class SharedControl:
+         if self._filter:
+             steer_vehicle = self._steer_filter_v(steer_vehicle, t=2)
+ 
+-        steer_driver, info_driver = self.driver_control.control(path_list, state, err, min_index)
++        if self._sc_cfg.driver_model == 'G29':
++            # Acquisition lives in the main loop. Both PPO and fusion receive
++            # exactly this delayed/compensated value, never the raw wheel.
++            if 'human_steer' not in kwargs:
++                raise ValueError('SharedControl + G29 requires the bridge human_steer')
++            steer_driver = float(kwargs['human_steer'])
++            if not np.isfinite(steer_driver):
++                raise ValueError('Nonfinite bridge steering')
++            info_driver = LatDebugInfo(intention='', g29_connected=self.driver_control.connected,
++                triangle=False, rect=False, circle=False, times=False)
++        else:
++            steer_driver, info_driver = self.driver_control.control(path_list, state, err, min_index)
+         if self._filter:
+             steer_driver = self._steer_filter_d(steer_driver, t=2)
+ 
+diff --git a/display/pygame_display.py b/display/pygame_display.py
+index ba57387..2e8a38e 100644
+--- a/display/pygame_display.py
++++ b/display/pygame_display.py
+@@ -1,134 +1,40 @@
++"""Camera display with nonblocking 30 Hz refresh; events are pumped at 100 Hz."""
+ import time
+-import random
+ import pygame
+-import numpy as np
+ 
+-from utils.data import ControlInfo, SimulatorObservation
+ 
+ class PygameDisplay:
+     def __init__(self, config):
+-
+-        self._load_config(config)
+-        self._setup()
+-    
+-    def _load_config(self, config):
+-        self._cfg = config.controller.lateral
+-        self._lat_control_type = self._cfg.type
+-        self._driver_model = self._cfg.SharedControl.driver_model
+-    
+-    def _setup(self):
+-        # Initialize pygame and display settings
+-        pygame.init()
+-        self.width, self.height = 1920, 1080
++        pygame.display.init()
++        pygame.font.init()
++        self.width, self.height = 960, 540
+         self.screen = pygame.display.set_mode((self.width, self.height))
+-        pygame.display.set_caption("Carla Visualization")
+-        self.font = pygame.font.Font(None, 60)
+-        self.clock = pygame.time.Clock()
+-        self.fps_image = None
+-        self.top_image = None
+-        self.reaction_time_list = []
+-
+-        # Button definitions
+-        self.button_keys = ["triangle", "rect", "circle", "times"]
+-        # Button states: initialized to gray (inactive)
+-        self.button_states = {'triangle': 'gray', 'rect': 'gray', 'circle': 'gray', 'times': 'gray'}
+-        # Record the time when each button is lit (activated)
+-        self.button_light_times = {'triangle': None, 'rect': None, 'circle': None, 'times': None}
+-        # Record the time when each button is turned off
+-        self.button_times = {'triangle': None, 'rect': None, 'circle': None, 'times': None}
+-        # Button positions on the screen
+-        self.button_positions = {
+-            'triangle': (self.width - 200, self.height - 300),
+-            'rect': (self.width - 300, self.height - 200),
+-            'circle': (self.width - 100, self.height - 200),
+-            'times': (self.width - 200, self.height - 100)
+-        }
+-
+-        # Timer for randomly lighting buttons
+-        self.last_light_time = time.time()
+-        self.light_interval = 10
+-
+-    def run_step(self, env: SimulatorObservation, ctrl: ControlInfo):
+-        self.screen.fill((255, 255, 255))
+-        self._draw_fps_image(env.image)
+-        reaction_time = None
+-
+-        # Reaction time test only when G29 is connected
+-        if ctrl.lat.g29_connected:
+-            self._random_light_button()
+-            self._draw_buttons()
+-            reaction_time = self.handle_events(ctrl)
+-
+-        pygame.display.flip()
+-        self.clock.tick(30)
+-        
+-        # Save reaction time into control info if available
+-        if reaction_time is not None:
+-            ctrl.lat.reaction_time = reaction_time
+-            print("reaction_time", reaction_time)
+-
+-    def _draw_fps_image(self, fps_image):
+-        if fps_image is not None:
+-            fps_img_surface = pygame.surfarray.make_surface(np.transpose(fps_image, (1, 0, 2)))
+-            fps_img_surface = pygame.transform.scale(fps_img_surface, (self.width, self.height))
+-            self.screen.blit(fps_img_surface, (0, 0))
++        pygame.display.set_caption('HOCD · T248P shared driving')
++        self.font = pygame.font.Font(None, 28)
++        self.next_refresh = 0.
++        self.image_count = 0
++
++    def pump(self):
++        for event in pygame.event.get():
++            if event.type == pygame.QUIT or event.type == pygame.KEYUP and event.key == pygame.K_ESCAPE:
++                raise KeyboardInterrupt
++            if event.type == pygame.JOYDEVICEREMOVED:
++                raise RuntimeError('wheel_disconnected')
++
++    def run_step(self, env, ctrl, status=''):
++        now = time.monotonic()
++        if now < self.next_refresh:
++            return
++        self.next_refresh = now + 1. / 30
++        if env.image is not None:
++            surface = pygame.surfarray.make_surface(env.image.swapaxes(0, 1))
++            self.screen.blit(pygame.transform.scale(surface, (self.width, self.height)), (0, 0))
++            self.image_count += 1
+         else:
+-            print("FPS image is None")
+-
+-    def _random_light_button(self):
+-        if time.time() - self.last_light_time > self.light_interval:
+-            button_to_light = random.choice(['triangle', 'rect', 'circle', 'times'])
+-            # Only activate if currently inactive
+-            if self.button_states[button_to_light] == 'gray': 
+-                self.button_states[button_to_light] = 'green'
+-                self.button_light_times[button_to_light] = time.time() 
+-            # Update last activation time
+-            self.last_light_time = time.time() 
+-
+-    def _draw_buttons(self):
+-        for button_id, pos in self.button_positions.items():
+-            if self.button_states[button_id] == 'gray':
+-                color = (169, 169, 169)  
+-            elif self.button_states[button_id] == 'green':
+-                color = (144, 238, 144) 
+-            
+-            pygame.draw.circle(self.screen, color, pos, 50)
+-            
+-            label = ''
+-            if button_id == 'triangle':
+-                label = 'image/pygame_triangle.png'
+-            elif button_id == 'rect':
+-                label = 'image/pygame_rect.png'
+-            elif button_id == 'circle':
+-                label = 'image/pygame_circle.png'
+-            elif button_id == 'times':
+-                label = 'image/pygame_times.png'
+-            
+-            img = pygame.image.load(label)
+-            self.screen.blit(img, (pos[0]-30, pos[1]-30))  # 放在右下角
+-
+-    def handle_events(self, ctrl: ControlInfo):
+-        """Handle user input and return reaction time if triggered"""
+-        for key in self.button_keys:
+-            if getattr(ctrl.lat, key):
+-                reaction_time=self._handle_button_click(key)
+-                if reaction_time is not None:
+-                    return reaction_time
+-        return None
+-
+-    def _handle_button_click(self, button_id):
+-        """Handle button press and compute reaction time"""
+-        if self.button_states[button_id] == 'green':
+-             # Compute time from activation to response
+-            if self.button_light_times[button_id]:
+-                elapsed_time = time.time() - self.button_light_times[button_id]
+-                print(f"Button {button_id} turned off after {elapsed_time:.2f} seconds.")
+-            # Reset button state
+-            self.button_states[button_id] = 'gray'  
+-            self.button_times[button_id] = time.time() 
+-            self.button_light_times[button_id] = None 
+-            return elapsed_time
+-        else:
+-            return None
+-
++            self.screen.fill((25, 25, 25))
++        text = self.font.render(status, True, (255, 255, 255), (0, 0, 0))
++        self.screen.blit(text, (12, 12))
++        pygame.display.flip()
+ 
++    def close(self):
++        pygame.display.quit()
+diff --git a/main.py b/main.py
+index ba300fb..418d5ef 100644
+--- a/main.py
++++ b/main.py
+@@ -1,70 +1,9 @@
+-from omegaconf import OmegaConf
++"""Cooperative driving entry point; fixed HOCD configuration, per-trial flags."""
++from pathlib import Path
++import sys
+ 
+-from simulator.simulator import CarlaSimulator
+-from planner.vehicle_planner import VehiclePlan
+-from controller.vehicle_controller import VehicleControl
+-from display.visualization import Visualization
+-from display.pygame_display import PygameDisplay
+-from utils.data import ControlInfo, LatDebugInfo, LonDebugInfo
++sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++from bridge.hocd_runner import main
+ 
+-
+-config = OmegaConf.load("utils/config.yaml")
+-
+-# Initialize simulator
+-sim = CarlaSimulator(config, init_level="full")
+-
+-# Visualization module for logging and plotting results
+-display = Visualization(config, sim)
+-
+-# Vehicle controller (lateral + longitudinal)
+-controller = VehicleControl(config)
+-ctrl = ControlInfo(lat=LatDebugInfo(), lon=LonDebugInfo())
+-
+-# Initialize planner with map information
+-map_info = sim.get_map_info()
+-planner = VehiclePlan(config, map_info)
+-
+-# Pygame-based real-time visualization
+-pygame_display = PygameDisplay(config)
+-
+-# Planning frequency settings
+-planning_time = 0.2 
+-planning_count = int(0.2 / 0.01)
+-
+-count = 0
+-
+-try:
+-    while True:
+-        # Step the simulator and get current observation
+-        env = sim.tick()
+-
+-         # Planning
+-        if count % planning_count == 0:
+-            plan = planner.run_step(env, ctrl.lat.intention)
+-
+-        # Compute control commands based on current plan
+-        ctrl = controller.run_step(env, plan)
+-
+-        # Update visualization
+-        pygame_display.run_step(env, ctrl)
+-        display.run_step(env, plan, ctrl)
+-        
+-        # Apply control to the vehicle
+-        sim.control_vehicle(throttle=ctrl.throttle, steer=ctrl.steer, brake=ctrl.brake, gear=1)
+-
+-        # Stop the vehicle when close to destination
+-        if plan.distance < 7:
+-            sim.control_vehicle(steer=0, throttle=0, brake=2)
+-            print("last waypoint reached")
+-            break
+-
+-        count += 1
+-        
+-    # Show final results and  plots
+-    display.show_result()
+-
+-finally:
+-    # Clean up all actors
+-    sim.ego_vehicle.destroy()
+-    for veh in sim.other_vehicles:
+-        veh.destroy()
++if __name__ == '__main__':
++    main()
+diff --git a/planner/vehicle_planner.py b/planner/vehicle_planner.py
+index 4604e62..2413fcb 100644
+--- a/planner/vehicle_planner.py
++++ b/planner/vehicle_planner.py
+@@ -1,9 +1,11 @@
+ import copy
+ import math
+ import numpy as np
++import json
++from pathlib import Path
+ 
+ from planner.global_plan import GlobalPlan
+-from planner.plan_utils import FrenetPath, QuarticPolynomial, QuinticPolynomial, distance_destination
++from planner.plan_utils import FrenetPath, QuarticPolynomial, QuinticPolynomial, distance_destination, waypoint_list_2_target_path
+ from utils.data import PlanInfo, SimulatorObservation
+ 
+ 
+@@ -41,8 +43,13 @@ class VehiclePlan:
+     
+     def _setup(self, config, map_info):
+         town_map, topology, origin, destination = map_info
+-        self._global_planner = GlobalPlan(config, town_map, topology)
+-        self._global_path, self._csp, _, _, _ = self._global_planner.plan(origin, destination)
++        if config.simulator.get('route_file'):
++            # Fixed lane route, verified against CARLA 0.9.16 before acquisition.
++            route = json.loads(Path(config.simulator.route_file).read_text())
++            self._global_path, self._csp, _, _, _ = waypoint_list_2_target_path(route['waypoints'], config.planner.ds)
++        else:
++            self._global_planner = GlobalPlan(config, town_map, topology)
++            self._global_path, self._csp, _, _, _ = self._global_planner.plan(origin, destination)
+         self._destination = destination
+         self._plan_start_point()
+ 
+@@ -63,6 +70,8 @@ class VehiclePlan:
+ 
+         # 2. Compute optimal local trajectory using Frenet planner
+         path = self._frenet_optimal_planning(obs_list, human_intention)
++        if path is None or len(path.x) < 2:
++            raise RuntimeError('no_candidate_path')
+ 
+         # 3. Extract trajectory (x, y, yaw, curvature) and speed profile
+         path_list = list(zip(path.x, path.y, path.yaw, path.c))
+@@ -120,7 +129,8 @@ class VehiclePlan:
+                 human_intention_change = -3
+         else:
+             human_intention_change = 0
+-        print("Human intention:",human_intention, human_intention_change)
++        if self._debug:
++            print("Human intention:",human_intention, human_intention_change)
+ 
+         # ===== Lateral sampling =====
+         for di in np.arange(-self._MAX_ROAD_WIDTH, self._MAX_ROAD_WIDTH, self._D_ROAD_W): 
+@@ -184,6 +194,9 @@ class VehiclePlan:
+                 fp.x.append(fx)
+                 fp.y.append(fy)
+ 
++            # Near the route end there may be too few Cartesian points.
++            if len(fp.x) < 2:
++                continue
+             # Compute yaw and arc length
+             for i in range(len(fp.x) - 1):
+                 dx = fp.x[i + 1] - fp.x[i]
+@@ -209,6 +222,8 @@ class VehiclePlan:
+         """
+         ok_ind = []
+         for i, _ in enumerate(fplist):
++            if len(fplist[i].x) < 2:
++                continue
+             if not self._check_collision(fplist[i], ob):
+                 continue
+             ok_ind.append(i)
+diff --git a/rl/ppo.py b/rl/ppo.py
+index 134254a..803099f 100644
+--- a/rl/ppo.py
++++ b/rl/ppo.py
+@@ -117,8 +117,8 @@ class PPO:
+         self.critic = CriticNet(self._state_dim, self._hidden_dim).to(self._device)
+ 
+         if not self._train:
+-            self.actor.load_state_dict(torch.load(self._actor_path))
+-            self.critic.load_state_dict(torch.load(self._critic_path))
++            self.actor.load_state_dict(torch.load(self._actor_path, map_location=self._device))
++            self.critic.load_state_dict(torch.load(self._critic_path, map_location=self._device))
+             print(f"Loading model...Actor:{self._actor_path} Critic:{self._critic_path}")
+ 
+         self.optimizer_actor = Adam(self.actor.parameters(), lr=float(self._lr_a))
+diff --git a/simulator/simulator.py b/simulator/simulator.py
+index 64dfe76..c824b68 100644
+--- a/simulator/simulator.py
++++ b/simulator/simulator.py
+@@ -1,5 +1,8 @@
+ import carla
+ import numpy as np
++import json
++from pathlib import Path
++import time
+ 
+ from utils.data import SimulatorObservation
+ from simulator.simulator_utils import get_vehicle_state
+@@ -26,19 +29,28 @@ class CarlaSimulator:
+         self.end_point = cfg.end_point
+         self._sampling_resolution = cfg.sampling_resolution
+         self._vehicles = config.vehicles
++        self._route = json.loads(Path(cfg.route_file).read_text()) if cfg.get('route_file') else None
++        self._actors = []
++        self.fps_camera = self.collision_sensor = self.ego_vehicle = None
++        self.camera_frames = 0
++        self.last_camera_frame = None
++        self._camera_size = (int(cfg.get('camera_width', 640)), int(cfg.get('camera_height', 360)))
+ 
+     def _setup(self):
+         # Connect to CARLA server and load world
+         self.client = carla.Client(self._host, self._port)
+         self.client.set_timeout(self._timeout)
+-        self.world = self.client.load_world(self._town)
++        self.world = self.client.get_world()
++        if self.world.get_map().name.split('/')[-1] != self._town:
++            self.world = self.client.load_world(self._town)
++        self._original_settings = self.world.get_settings()
+ 
+         # Get blueprint library and map
+         self.bp_lib = self.world.get_blueprint_library()
+         self.town_map = self.world.get_map()
+ 
+         # Build topology for global planning
+-        self.topology = self._build_topology()
++        self.topology = [] if self._route else self._build_topology()
+         
+         # Generate spawn points
+         if self._user_defined_spawn_points:
+@@ -57,7 +69,8 @@ class CarlaSimulator:
+     def _setup_other(self):
+         
+         # Set traffic manager
+-        self._set_traffic_manager()
++        if self._vehicles.get('obstacles', []):
++            self._set_traffic_manager()
+ 
+         # Spawn ego and other vehicles
+         self._spawn_ego_vehicle()
+@@ -66,6 +79,7 @@ class CarlaSimulator:
+         # Add camera sensor
+         self.fps_image = None
+         self.fps_camera = self._spawn_camera((0.6, 0, 1.3))
++        self.generate_collision_sensor()
+ 
+         # Update world once
+         self.tick()
+@@ -75,11 +89,14 @@ class CarlaSimulator:
+         Create RGB camera and attach to ego vehicle
+         """
+         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
+-        camera_bp.set_attribute('image_size_x', '1280')
+-        camera_bp.set_attribute('image_size_y', '720')
++        camera_bp.set_attribute('image_size_x', str(self._camera_size[0]))
++        camera_bp.set_attribute('image_size_y', str(self._camera_size[1]))
++        camera_bp.set_attribute('sensor_tick', '0.033333333')
++        camera_bp.set_attribute('enable_postprocess_effects', 'false')
+         camera_bp.set_attribute('fov', '110')
+         camera_transform = carla.Transform(carla.Location(x=location[0], y=location[1], z=location[2]))
+         camera = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.ego_vehicle)
++        self._actors.append(camera)
+         camera.listen(lambda image: self.process_image(image))
+         return camera
+ 
+@@ -89,8 +106,9 @@ class CarlaSimulator:
+         """
+         array = np.frombuffer(image.raw_data, dtype=np.uint8)
+         array = np.reshape(array, (image.height, image.width, 4))
+-        array = array[:, :, :3]
+-        self.fps_image = array
++        self.fps_image = array[:, :, :3][:, :, ::-1].copy()
++        self.camera_frames += 1
++        self.last_camera_frame = image.frame
+ 
+     def set_synchronous_mode(self):
+         """
+@@ -118,7 +136,12 @@ class CarlaSimulator:
+         # else:
+         #     ego_transform = self._get_transform_from_cfg(spawn_point)
+         ego_transform = self._get_transform_from_cfg(self.start_point)
++        if self._route:
++            point = self._route['start']
++            ego_transform = carla.Transform(carla.Location(x=point['x'], y=point['y'], z=point['z'] + .3),
++                carla.Rotation(yaw=point['yaw']))
+         ego_vehicle = self.world.spawn_actor(ego_bp, ego_transform)
++        self._actors.append(ego_vehicle)
+         self.ego_vehicle = ego_vehicle
+     
+     def _spawn_other_vehicle(self):
+@@ -127,6 +150,7 @@ class CarlaSimulator:
+             obs_bp.set_attribute("color", obs_cfg.color)
+             obs_transform = self._get_transform_from_cfg(obs_cfg.spawn_point)
+             obs_vehicle = self.world.spawn_actor(obs_bp, obs_transform)
++            self._actors.append(obs_vehicle)
+             # Behavior control
+             if obs_cfg.get("is_move", False):
+                 obs_vehicle.set_autopilot(True)
+@@ -154,7 +178,10 @@ class CarlaSimulator:
+         transform = carla.Transform(carla.Location(x, y, z + 50), carla.Rotation(pitch=-90))
+         spectator.set_transform(transform)
+ 
+-        self.world.tick()
++        self.last_tick_start_us = time.monotonic_ns() // 1000
++        self.last_frame = self.world.tick()
++        self.last_tick_return_us = time.monotonic_ns() // 1000
++        self.snapshot = self.world.get_snapshot()
+ 
+         return SimulatorObservation(
+             ego=get_vehicle_state(self.ego_vehicle),
+@@ -188,6 +215,7 @@ class CarlaSimulator:
+     def generate_collision_sensor(self):
+         collision_bp = self.world.get_blueprint_library().find('sensor.other.collision')
+         self.collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.ego_vehicle)
++        self._actors.append(self.collision_sensor)
+         self.collision_sensor.listen(lambda event: self._get_collision_hist(event))
+ 
+     def _get_collision_hist(self, event):
+@@ -196,26 +224,35 @@ class CarlaSimulator:
+         """
+         impulse = event.normal_impulse
+         intensity = np.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
+-        self.collision_hist.append(intensity)
+-        if len(self.collision_hist) > 1:
+-            self.collision_hist.pop(0)
++        self.collision_hist.append({'frame': event.frame, 'intensity': float(intensity),
++                                    'other_actor': event.other_actor.type_id})
+         
+     def get_map_info(self):
++        if self._route:
++            start, end = self._route['start'], self._route['end']
++            return self.town_map, self.topology, carla.Location(x=start['x'], y=start['y'], z=start['z']), carla.Location(x=end['x'], y=end['y'], z=end['z'])
+         start = self.all_default_spawn[self.start_point].location
+         end = self.all_default_spawn[self.end_point].location
+         return self.town_map, self.topology, start, end
+     
+     def destroy_actors(self):
+-        if self.collision_sensor is not None and self.collision_sensor.is_listening:
+-            self.collision_sensor.stop()
+-        self.collision_hist = []
+-        self.ego_vehicle.destroy()
+-        for v in self.other_vehicles:
+-            v.destroy()
+-        self.collision_sensor.destroy()
++        errors = []
++        for actor in reversed(self._actors):
++            try:
++                if actor.is_alive:
++                    if isinstance(actor, carla.Sensor) and actor.is_listening:
++                        actor.stop()
++                    actor.destroy()
++            except Exception as exc:
++                errors.append(str(exc))
++        self._actors.clear()
++        if hasattr(self, '_traffic_manager'):
++            self._traffic_manager.set_synchronous_mode(False)
++        if hasattr(self, '_original_settings'):
++            self.world.apply_settings(self._original_settings)
++        if errors:
++            raise RuntimeError('; '.join(errors))
+ 
+     def control_vehicle(self, throttle=0.0, steer=0.0, brake=0.0, hand_brake=False, reverse=False, manual_gear_shift=False, gear=0):
+         command = carla.VehicleControl(throttle, steer, brake, hand_brake, reverse, manual_gear_shift, gear)
+         self.ego_vehicle.apply_control(command)
+-
+-        
+\ No newline at end of file
+diff --git a/utils/config.yaml b/utils/config.yaml
+index 50e0351..a3f3aec 100644
+--- a/utils/config.yaml
++++ b/utils/config.yaml
+@@ -1,125 +1,99 @@
+ simulator:
+-  host: 'localhost'
++  host: localhost
+   port: 2000
+   timeout: 20
+-  town: 'Town04'
+-  synchronous: True         # Whether to use synchronous mode
+-  fixed_time: 0.01          # Fixed time step in synchronous mode
+-  no_rendering: False       # Disable rendering if True
+-  user_defined_spawn_points: True
+-  start_point: 514         
+-  end_point: 441        
++  town: Town04
++  synchronous: true
++  fixed_time: 0.01
++  no_rendering: false
++  user_defined_spawn_points: false
++  start_point: 150
++  end_point: 150
+   sampling_resolution: 2
+-  
+-
++  route_file: /home/patton/cooperative_driving/configs/route_town04.json
++  camera_width: 640
++  camera_height: 360
+ controller:
+   max_throttle: 0.75
+   max_brake: 0.3
+   max_steer: 1
+   min_steer: -1
+-  pre_ts: 0.2               # Preview time
+-  dt: 0.01                  # Discrete control time step
+-
++  pre_ts: 0.2
++  dt: 0.01
+   lateral:
+-    filter: False      
+-    type: SharedControl     # Options: MPC / Preview / G29 / SharedControl
+-
+-    SharedControl:         
+-      driver_model: Preview # Options: Preview / G29
++    filter: false
++    type: SharedControl
++    SharedControl:
++      driver_model: G29
+       vehicle_model: MPC
+-      authority_model: PPO  # Options: PPO / TVDC
+-      driver_state: 0.5     # Options: Driver state 0.0 (concentrated) / 0.5 (normal) / 1.0 (fatigued)
+-
++      authority_model: PPO
++      driver_state: 0.5
+     MPC:
+-      Q: [ 250, 1, 20, 1 ]   
++      Q:
++      - 250
++      - 1
++      - 20
++      - 1
+       R: 20
+       F: 1
+-
+     Preview:
+       K_P: 1.6
+       K_I: 0
+       K_D: 0
+       near: 0
+       far: 2
+-      delay: 5             # Reaction delaycorresponds to different driver states. Options: 1(concentrated) / 5(normal) / 10(fatigued)
+-      
+-    G29: {}
+-
++      delay: 5
++    G29:
++      device_index: 0
++      steering_axis: 0
++      steering_sign: 1
+   longitudinal:
+     type: PID
+     PID:
+       K_P: 2
+       K_I: 0
+       K_D: 0
+-
+-
+ planner:
+-  debug: True
+-  ds: 1                     # Distance between sampled points in global path (meters)
+-
+-  MAX_SPEED: 60.0           # Maximum speed [km/h]
+-  MAX_ACCEL: 2.0            # Maximum acceleration [m/s^2]
+-  MAX_CURVATURE: 1.0        # Maximum curvature [1/m]
+-  MAX_ROAD_WIDTH: 7.0       # Maximum lateral offset [m]
+-  D_ROAD_W: 1.0             # Lateral sampling resolution [m]
+-  DT: 0.2                   # Time tick [s]
+-  MAX_T: 5.0                # Maximum prediction time [s]
+-  MIN_T: 4.0                # Minimum prediction time [s]
+-  TARGET_SPEED: 60.0        # Target speed [km/h]
+-  D_T_S: 5.0                # Target speed sampling interval [km/h]
+-  N_S_SAMPLE: 1             # Number of speed samples
+-  ROBOT_RADIUS: 3.0         # Collision radius [m]
+-
++  debug: false
++  ds: 1
++  MAX_SPEED: 35.0
++  MAX_ACCEL: 2.0
++  MAX_CURVATURE: 1.0
++  MAX_ROAD_WIDTH: 7.0
++  D_ROAD_W: 1.0
++  DT: 0.2
++  MAX_T: 5.0
++  MIN_T: 4.0
++  TARGET_SPEED: 30.0
++  D_T_S: 5.0
++  N_S_SAMPLE: 1
++  ROBOT_RADIUS: 3.0
+   K_J: 0.1
+   K_T: 0.1
+   K_D: 1
+   K_LAT: 1.0
+   K_LON: 1.0
+-
+-
+ rl:
+-  device: 'cuda:0'
+-  train: False
+-  use_state_norm: False
+-
++  device: cpu
++  train: false
++  use_state_norm: false
+   buffer_capacity: 100000
+   batch_size: 128
+   state_dim: 6
+   action_dim: 1
+   hidden_dim: 128
+-  lr_a: 5e-4
+-  lr_c: 5e-4
+-
++  lr_a: 0.0005
++  lr_c: 0.0005
+   gamma: 0.9
+   gae_lambda: 0.95
+   clip_param: 0.2
+   entropy_coef: 0.01
+   ppo_epoch: 10
+-
+   model:
+-    actor: 'rl/model/ppo/actor_model.pkl'
+-    critic: 'rl/model/ppo/critic_model.pkl'
+-
+-
++    actor: rl/model/ppo/actor_model.pkl
++    critic: rl/model/ppo/critic_model.pkl
+ vehicles:
+-  ego: 
+-    model: 'vehicle.tesla.model3'
+-    color: '0,0,0'
+-
+-  obstacles:
+-    - spawn_point: 1648
+-      model: "vehicle.tesla.model3"
+-      color: "255,88,0"
+-      is_move: True
+-      speed: 30             # [km/h]
+-
+-    # Example of custom obstacle
+-    # spawn_point: 1648
+-    # model: 'vehicle.tesla.model3'
+-    # color: '255,88,0'
+-    # is_move: True
+-    # speed: 30
+-    # user_defined : True
+-    # location: [26.357386, 6.189795, 11.50]
+-    # rotation: [0.0, -179.767349, 0.0]
+-
++  ego:
++    model: vehicle.tesla.model3
++    color: 0,0,0
++  obstacles: []
